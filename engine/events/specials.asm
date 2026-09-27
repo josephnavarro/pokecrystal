@@ -405,6 +405,14 @@ FadeOutMusic:
 	ld [wMusicFade], a
 	ret
 
+HoOhDescent:
+	call FadeToMenu
+	farcall _HoOhDescent
+; Let ExitAllMenus redraw the map's sprites before it fades back in
+	call EnableSpriteUpdates
+	call ExitAllMenus
+	ret
+
 Diploma:
 	call FadeToMenu
 	farcall _Diploma

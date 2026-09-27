@@ -692,3 +692,8 @@ SECTION "Stadium 2 Checksums", ROMX[$7DE0], BANK[$7F]
 ; If it is removed, also remove the "tools/stadium" command in the Makefile.
 
 	ds $220
+
+
+SECTION "Ho-Oh Descent", ROMX
+
+INCLUDE "engine/events/ho_oh_descent.asm"

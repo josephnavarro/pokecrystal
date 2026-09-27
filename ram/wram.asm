@@ -150,7 +150,7 @@ wScriptVar:: db
 wPlayerNextMovement:: db
 wPlayerMovement:: db
 
-	ds 2
+wDanceMovementPointer:: dw
 
 wMovementObject::
 	db
@@ -158,7 +158,8 @@ wMovementDataBank:: db
 wMovementDataAddress:: dw
 wIndexedMovement2Pointer:: dw
 
-	ds 2
+wDanceMovementBank:: db
+	ds 1
 
 wContinueReadingMovement:: db
 
@@ -3225,8 +3226,9 @@ wFastShipB1FSceneID::                             db
 wMountMoonSquareSceneID::                         db
 wMobileTradeRoomSceneID::                         db
 wMobileBattleRoomSceneID::                        db
+wTinTowerRoofSceneID::                            db
 
-	ds 49
+	ds 48
 
 ; fight counts
 wJackFightCount::    db
@@ -3637,7 +3639,21 @@ wMagnetTrainHoldPosition:: db
 wMagnetTrainFinalPosition:: db
 wMagnetTrainPlayerSpriteInitX:: db
 
-	ds 106
+wHoOhDescent:: ; used only for BANK(wHoOhDescent)
+wHoOhDescentTimer:: db
+wHoOhDescentOrbX:: db
+wHoOhDescentOrbY:: db
+wHoOhDescentCloudScroll:: db
+wHoOhDescentPanY:: db
+wHoOhDescentRainbowIndex:: db
+wHoOhDescentSparkleSlot:: db
+; x, y, lifetime
+wHoOhDescentSparkles:: ds HOOHDESCENT_NUM_SPARKLES * 3
+; x, y, sway phase
+wHoOhDescentLeaves:: ds HOOHDESCENT_NUM_LEAVES * 3
+wHoOhDescentEnd::
+
+	ds 106 - (wHoOhDescentEnd - wHoOhDescent)
 
 	align 8
 wLYOverridesBackup:: ds SCREEN_HEIGHT_PX

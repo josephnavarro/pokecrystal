@@ -553,6 +553,7 @@ StepFunction_FromMovement:
 	dw MovementFunction_SpinCounterclockwise ; 19
 	dw MovementFunction_BoulderDust          ; 1a
 	dw MovementFunction_ShakingGrass         ; 1b
+	dw MovementFunction_Dance                ; 1c
 	assert_table_length NUM_SPRITEMOVEFN
 
 MovementFunction_Null:
@@ -647,6 +648,10 @@ MovementFunction_Follow:
 
 MovementFunction_Script:
 	ld hl, GetMovementIndex
+	jp HandleMovementData
+
+MovementFunction_Dance:
+	ld hl, GetDanceMovementIndex
 	jp HandleMovementData
 
 MovementFunction_Strength:
@@ -1892,6 +1897,34 @@ GetIndexedMovementIndex2:
 	add hl, de
 	ld a, [hl]
 	ret
+
+GetDanceMovementIndex:
+; Like scripted movement, but each dancer reads its own lane of
+; wDanceMovementBank:wDanceMovementPointer, chosen by OBJECT_RANGE.
+; This lets several objects run different movements at once.
+	ld hl, OBJECT_RANGE
+	add hl, bc
+	ld a, [hl]
+	add a
+	ld e, a
+	ld d, 0
+	ld hl, wDanceMovementPointer
+	ld a, [hli]
+	ld h, [hl]
+	ld l, a
+	add hl, de
+	ld a, [wDanceMovementBank]
+	call GetFarWord
+; hl = lane pointer; add this dancer's movement index
+	push hl
+	ld hl, OBJECT_MOVEMENT_INDEX
+	add hl, bc
+	ld e, [hl]
+	inc [hl]
+	pop hl
+	add hl, de
+	ld a, [wDanceMovementBank]
+	jp GetFarByte
 
 _GetMovementObject:
 	ld hl, GetMovementObject

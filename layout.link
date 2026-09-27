@@ -48,7 +48,6 @@ ROMX $07
 ROMX $08
 	"Clock Reset"
 	"Tileset Data 3"
-	"Egg Moves"
 ROMX $09
 	"bank9"
 ROMX $0a
@@ -255,8 +254,10 @@ ROMX $5f
 ROMX $60
 	"Map Scripts 13"
 	"Pokedex Entries 001-064"
+	"Egg Moves" ; moved to make room for the Tin Tower roof tiles
 ROMX $61
 	"Map Scripts 14"
+	"Ho-Oh Descent"
 ROMX $62
 	"Map Scripts 15"
 ROMX $63

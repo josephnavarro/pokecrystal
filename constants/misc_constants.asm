@@ -56,3 +56,7 @@ DEF CARDFLIP_DECK_SIZE EQU 4 * 6
 
 ; SGB command MLT_REQ can be used to detect SGB hardware
 DEF JOYP_SGB_MLT_REQ EQU %00000011
+
+; Ho-Oh descent cutscene (see engine/events/ho_oh_descent.asm)
+DEF HOOHDESCENT_NUM_SPARKLES EQU 12
+DEF HOOHDESCENT_NUM_LEAVES   EQU 10
