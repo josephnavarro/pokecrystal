@@ -5,6 +5,8 @@
 	const TINTOWERROOF_KIMONO_GIRL3
 	const TINTOWERROOF_KIMONO_GIRL4
 	const TINTOWERROOF_KIMONO_GIRL5
+	const TINTOWERROOF_CHRIS_STAND_IN
+	const TINTOWERROOF_KRIS_STAND_IN
 
 DEF NUM_TINTOWERROOF_KIMONO_GIRLS EQU 5
 
@@ -29,6 +31,8 @@ TinTowerRoofNoopScene:
 	end
 
 TinTowerRoofHoOhCallback:
+	disappear TINTOWERROOF_CHRIS_STAND_IN
+	disappear TINTOWERROOF_KRIS_STAND_IN
 	checkevent EVENT_FOUGHT_HO_OH
 	iftrue .AfterHoOh
 	checkitem RAINBOW_WING
@@ -90,7 +94,16 @@ TinTowerRoofHoOhEventScript:
 	special FadeOutMusic
 	special FadeOutToWhite
 ; While the screen is white, hide the player and raise the camera to the
-; top of the spire, where Ho-Oh will appear.
+; top of the spire, where Ho-Oh will appear. A stand-in keeps the player's
+; place in the gap while the camera pans back down.
+	checkflag ENGINE_PLAYER_IS_FEMALE
+	iftrue .KrisStandIn
+	appear TINTOWERROOF_CHRIS_STAND_IN
+	sjump .StandInReady
+
+.KrisStandIn:
+	appear TINTOWERROOF_KRIS_STAND_IN
+.StandInReady:
 	applymovement PLAYER, TinTowerRoofCameraRisesMovement
 ; full-screen specials expect the BG map anchored at its top-left
 	reanchormap
@@ -100,6 +113,9 @@ TinTowerRoofHoOhEventScript:
 	pause 45
 ; The camera pans back down to the player as Ho-Oh comes down the spire
 	callasm TinTowerRoofHoOhDescendsAsm
+; the player is back in the gap, so the stand-in can go
+	disappear TINTOWERROOF_CHRIS_STAND_IN
+	disappear TINTOWERROOF_KRIS_STAND_IN
 	pause 60
 	playsound SFX_SHINE
 	special FadeOutToWhite
@@ -997,3 +1013,5 @@ TinTowerRoof_MapEvents:
 	object_event  9,  7, SPRITE_KIMONO_GIRL, SPRITEMOVEDATA_STANDING_DOWN, 0, 0, -1, -1, PAL_NPC_PINK, OBJECTTYPE_SCRIPT, 0, TinTowerRoofKimonoGirlScript, EVENT_TIN_TOWER_ROOF_KIMONO_GIRLS
 	object_event 10,  7, SPRITE_KIMONO_GIRL, SPRITEMOVEDATA_STANDING_DOWN, 0, 0, -1, -1, PAL_NPC_GREEN, OBJECTTYPE_SCRIPT, 0, TinTowerRoofKimonoGirlScript, EVENT_TIN_TOWER_ROOF_KIMONO_GIRLS
 	object_event 11,  7, SPRITE_KIMONO_GIRL, SPRITEMOVEDATA_STANDING_DOWN, 0, 0, -1, -1, PAL_NPC_BROWN, OBJECTTYPE_SCRIPT, 0, TinTowerRoofKimonoGirlScript, EVENT_TIN_TOWER_ROOF_KIMONO_GIRLS
+	object_event  9,  8, SPRITE_CHRIS, SPRITEMOVEDATA_STANDING_UP, 0, 0, -1, -1, PAL_NPC_RED, OBJECTTYPE_SCRIPT, 0, ObjectEvent, EVENT_TEMPORARY_UNTIL_MAP_RELOAD_1
+	object_event  9,  8, SPRITE_KRIS, SPRITEMOVEDATA_STANDING_UP, 0, 0, -1, -1, PAL_NPC_BLUE, OBJECTTYPE_SCRIPT, 0, ObjectEvent, EVENT_TEMPORARY_UNTIL_MAP_RELOAD_2

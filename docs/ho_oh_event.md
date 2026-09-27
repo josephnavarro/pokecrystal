@@ -225,7 +225,10 @@ moves the player:
    `TinTowerRoofHoOhDescendsLanes` at once:
    - The hidden player walks back down to the gap; the camera follows it.
    - Ho-Oh `slow_step`s down to (9,6).
-   Then the player reappears facing up.
+   Then the player reappears facing up. Meanwhile a stand-in object
+   (`TINTOWERROOF_CHRIS_STAND_IN` or `TINTOWERROOF_KRIS_STAND_IN`, by the
+   player's gender) stands in the gap, so the player never looks missing; it
+   is removed once the real player is back on that square.
 3. `TinTowerRoofStartLanes` is the shared lane starter, also used by the
    dance. It takes a -1-terminated list of objects (`PLAYER` included) and a
    lanes table.
