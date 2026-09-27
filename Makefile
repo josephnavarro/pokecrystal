@@ -359,6 +359,24 @@ gfx/mobile/pichu_animated.2bpp: tools/gfx += --trim-whitespace
 gfx/mobile/stadium2_n64.2bpp: tools/gfx += --trim-whitespace
 
 
+### Ho-Oh descent cutscene art (see engine/events/ho_oh_descent.asm)
+
+# Close-up: a full-colour 128x96 picture, up to 7 palettes and 256 unique tiles.
+gfx/ho_oh_descent/closeup.2bpp: gfx/ho_oh_descent/closeup.png
+	$(RGBGFX) -u -o $@ -t gfx/ho_oh_descent/closeup.tilemap -a gfx/ho_oh_descent/closeup.attrmap -p gfx/ho_oh_descent/closeup.palettes $<
+gfx/ho_oh_descent/closeup.tilemap gfx/ho_oh_descent/closeup.attrmap gfx/ho_oh_descent/closeup.palettes: gfx/ho_oh_descent/closeup.2bpp ;
+
+# Silhouette: 64x48 frames stacked vertically, one palette plus transparency.
+gfx/ho_oh_descent/silhouette.2bpp: gfx/ho_oh_descent/silhouette.png
+	$(RGBGFX) -Z -o $@ -p gfx/ho_oh_descent/silhouette.palettes $<
+gfx/ho_oh_descent/silhouette.palettes: gfx/ho_oh_descent/silhouette.2bpp ;
+
+# Diver: 64x64 frames stacked vertically, up to 4 palettes plus transparency.
+gfx/ho_oh_descent/diver.2bpp: gfx/ho_oh_descent/diver.png
+	$(RGBGFX) -Z -o $@ -a gfx/ho_oh_descent/diver.attrmap -p gfx/ho_oh_descent/diver.palettes $<
+gfx/ho_oh_descent/diver.attrmap gfx/ho_oh_descent/diver.palettes: gfx/ho_oh_descent/diver.2bpp ;
+
+
 ### Catch-all graphics rules
 
 %.2bpp: %.png

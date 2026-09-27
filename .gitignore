@@ -9,6 +9,9 @@
 *.dimensions
 *.animated.tilemap
 *.sgb.tilemap
+gfx/ho_oh_descent/*.tilemap
+gfx/ho_oh_descent/*.attrmap
+gfx/ho_oh_descent/*.palettes
 gfx/pokemon/*/bitmask.asm
 gfx/pokemon/*/frames.asm
 !gfx/pokemon/unown/bitmask.asm

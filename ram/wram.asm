@@ -3641,11 +3641,14 @@ wMagnetTrainPlayerSpriteInitX:: db
 
 wHoOhDescent:: ; used only for BANK(wHoOhDescent)
 wHoOhDescentTimer:: db
-wHoOhDescentOrbX:: db
-wHoOhDescentOrbY:: db
+wHoOhDescentWX:: db
+; how far the silhouette has flown, or the diver's y + 64
+wHoOhDescentObjPos:: db
+wHoOhDescentObjSubpixel:: db
+wHoOhDescentObjFrame:: db ; -1 = hidden
+wHoOhDescentAnimPointer:: dw
+wHoOhDescentAnimTimer:: db
 wHoOhDescentCloudScroll:: db
-wHoOhDescentPanY:: db
-wHoOhDescentRainbowIndex:: db
 wHoOhDescentSparkleSlot:: db
 ; x, y, lifetime
 wHoOhDescentSparkles:: ds HOOHDESCENT_NUM_SPARKLES * 3

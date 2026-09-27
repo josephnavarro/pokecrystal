@@ -1,5 +1,14 @@
-; Full-screen cutscene of a rainbow light coming down from the sky,
-; played on the Tin Tower roof before Ho-Oh appears.
+; Full-screen cutscene played on the Tin Tower roof before Ho-Oh appears.
+;
+; Shots (60 frames per second):
+; - white, then a letterboxed sky; a close-up picture slides in from the right
+; - black cut; a silhouette flies right to left above the clouds, leaving sparkles
+; - black cut; a figure dives in from above and hovers among falling leaves
+; - white, then back to the roof
+;
+; The close-up, silhouette and diver pictures are slots filled from
+; gfx/ho_oh_descent/{closeup,silhouette,diver}.png; see
+; gfx/ho_oh_descent/README.md for their sizes and color limits.
 
 	const_def
 	const HOOHDESCENT_BG_SKY         ; $00
@@ -12,16 +21,143 @@
 	const HOOHDESCENT_BG_STREAK      ; $0b
 	const HOOHDESCENT_BG_HAZE        ; $0c
 
-	const_def
-	const HOOHDESCENT_OB_ORB         ; $00-$03 (and $04-$07 for the second frame)
-	const_skip 7
-	const HOOHDESCENT_OB_SPARKLE_BIG   ; $08
-	const HOOHDESCENT_OB_SPARKLE_SMALL ; $09
-	const HOOHDESCENT_OB_LEAF_1        ; $0a
-	const HOOHDESCENT_OB_LEAF_2        ; $0b
+; 8x16 objects: each small graphic is followed by a blank tile
+DEF HOOHDESCENT_OB_SPARKLE_BIG   EQU $00
+DEF HOOHDESCENT_OB_SPARKLE_SMALL EQU $02
+DEF HOOHDESCENT_OB_LEAF_1        EQU $04
+DEF HOOHDESCENT_OB_LEAF_2        EQU $06
 
-DEF HOOHDESCENT_SPARKLE_LIFE EQU 24
-DEF HOOHDESCENT_ORB_HOVER_Y  EQU 72 ; OAM y where the light stops coming down
+; object palettes
+DEF HOOHDESCENT_PAL_SPARKLE    EQU 0
+DEF HOOHDESCENT_PAL_LEAF       EQU 1
+DEF HOOHDESCENT_PAL_SILHOUETTE EQU 2
+DEF HOOHDESCENT_PAL_DIVER      EQU 3 ; up to 4 palettes
+
+; shot timing, in frames (measured from the reference video)
+DEF HOOHDESCENT_WHITE_IN_FRAMES     EQU 96
+DEF HOOHDESCENT_SKY_FRAMES          EQU 176
+DEF HOOHDESCENT_CLOSEUP_SLIDE_SPEED EQU 5   ; pixels per frame
+DEF HOOHDESCENT_CLOSEUP_HOLD_FRAMES EQU 60
+DEF HOOHDESCENT_BLACK_FRAMES        EQU 30
+DEF HOOHDESCENT_SILHOUETTE_SPEED    EQU 9   ; eighths of a pixel per frame
+DEF HOOHDESCENT_CLOUDS_TAIL_FRAMES  EQU 110
+DEF HOOHDESCENT_DIVE_SPEED          EQU 5   ; half pixels per frame
+DEF HOOHDESCENT_HOVER_FRAMES        EQU 190
+DEF HOOHDESCENT_WHITE_OUT_FRAMES    EQU 132
+DEF HOOHDESCENT_SPARKLE_LIFE        EQU 90
+
+; layout
+DEF HOOHDESCENT_LETTERBOX_ROWS     EQU 3
+DEF HOOHDESCENT_CLOSEUP_WIDTH      EQU 16 ; tiles
+DEF HOOHDESCENT_CLOSEUP_HEIGHT     EQU 12 ; tiles
+DEF HOOHDESCENT_CLOSEUP_WX         EQU 7 + (SCREEN_WIDTH - HOOHDESCENT_CLOSEUP_WIDTH) * TILE_WIDTH
+DEF HOOHDESCENT_WX_HIDDEN          EQU 7 + SCREEN_WIDTH_PX
+DEF HOOHDESCENT_CLOUD_ROW          EQU 13
+DEF HOOHDESCENT_SILHOUETTE_WIDTH   EQU 8 ; 8x16 objects across (64 pixels)
+DEF HOOHDESCENT_SILHOUETTE_ROWS    EQU 3 ; 8x16 objects down (48 pixels)
+DEF HOOHDESCENT_SILHOUETTE_TOP     EQU 38 ; screen y
+DEF HOOHDESCENT_SILHOUETTE_TRAVEL  EQU SCREEN_WIDTH_PX + HOOHDESCENT_SILHOUETTE_WIDTH * TILE_WIDTH
+DEF HOOHDESCENT_DIVER_WIDTH        EQU 8 ; 8x16 objects across (64 pixels)
+DEF HOOHDESCENT_DIVER_ROWS         EQU 4 ; 8x16 objects down (64 pixels)
+DEF HOOHDESCENT_DIVER_LEFT         EQU 23 ; screen x
+DEF HOOHDESCENT_DIVER_TOP          EQU 42 ; screen y once it stops diving
+DEF HOOHDESCENT_DIVER_POS_OFFSET   EQU 64 ; wHoOhDescentObjPos = y + 64
+
+; jumptable indexes that select what object is drawn
+DEF HOOHDESCENT_FIRST_DIVE_STATE EQU 9 ; .DiveStart
+
+	pushs
+
+SECTION "Ho-Oh Descent Graphics", ROMX
+
+HoOhDescentCloseupGFX:
+INCBIN "gfx/ho_oh_descent/closeup.2bpp"
+.End:
+HoOhDescentCloseupTilemap:
+INCBIN "gfx/ho_oh_descent/closeup.tilemap"
+.End:
+HoOhDescentCloseupAttrmap:
+INCBIN "gfx/ho_oh_descent/closeup.attrmap"
+.End:
+HoOhDescentCloseupPalettes:
+INCBIN "gfx/ho_oh_descent/closeup.palettes"
+.End:
+
+HoOhDescentSilhouetteGFX:
+INCBIN "gfx/ho_oh_descent/silhouette.2bpp"
+.End:
+HoOhDescentSilhouettePalette:
+INCBIN "gfx/ho_oh_descent/silhouette.palettes", 0, 1 palettes
+
+HoOhDescentDiverGFX:
+INCBIN "gfx/ho_oh_descent/diver.2bpp"
+.End:
+HoOhDescentDiverAttrmap:
+INCBIN "gfx/ho_oh_descent/diver.attrmap"
+.End:
+HoOhDescentDiverPalettes:
+INCBIN "gfx/ho_oh_descent/diver.palettes"
+.End:
+
+HoOhDescentCloudsMap:
+; sky, a hazy horizon, then the tops of the clouds
+for row, TILEMAP_HEIGHT
+	for col, TILEMAP_WIDTH
+		if row < HOOHDESCENT_CLOUD_ROW - 1
+			db HOOHDESCENT_BG_SKY
+		elif row == HOOHDESCENT_CLOUD_ROW - 1
+			db HOOHDESCENT_BG_HAZE
+		elif row == HOOHDESCENT_CLOUD_ROW
+			db HOOHDESCENT_BG_CLOUD_TOP + col % 4
+		elif row == HOOHDESCENT_CLOUD_ROW + 1
+			db HOOHDESCENT_BG_CLOUD_MID + col % 4
+		else
+			db HOOHDESCENT_BG_CLOUD_FILL
+		endc
+	endr
+endr
+
+HoOhDescentStreaksMap:
+; streaks of light scattered in a pattern that wraps seamlessly
+for row, TILEMAP_HEIGHT
+	for col, TILEMAP_WIDTH
+		if (col * 3 + row * 5) % 8 == 0
+			db HOOHDESCENT_BG_STREAK
+		else
+			db HOOHDESCENT_BG_SKY
+		endc
+	endr
+endr
+
+HoOhDescentZeroAttrmap:
+	ds TILEMAP_AREA, 0
+
+	pops
+
+; check the slot pictures, so a wrong size fails the build instead of the cutscene
+DEF CLOSEUP_TILES EQU (HoOhDescentCloseupGFX.End - HoOhDescentCloseupGFX) / TILE_SIZE
+	assert CLOSEUP_TILES <= 256, \
+		"closeup.png has more than 256 unique tiles"
+	assert HoOhDescentCloseupTilemap.End - HoOhDescentCloseupTilemap == HOOHDESCENT_CLOSEUP_WIDTH * HOOHDESCENT_CLOSEUP_HEIGHT, \
+		"closeup.png must be 128x96 pixels"
+	assert HoOhDescentCloseupPalettes.End - HoOhDescentCloseupPalettes <= 7 palettes, \
+		"closeup.png uses more than 7 palettes"
+
+DEF SILHOUETTE_TILES_PER_COLUMN EQU (HoOhDescentSilhouetteGFX.End - HoOhDescentSilhouetteGFX) / TILE_SIZE / HOOHDESCENT_SILHOUETTE_WIDTH
+DEF SILHOUETTE_FRAMES EQU SILHOUETTE_TILES_PER_COLUMN / (HOOHDESCENT_SILHOUETTE_ROWS * 2)
+	assert SILHOUETTE_FRAMES >= 1 && SILHOUETTE_TILES_PER_COLUMN == SILHOUETTE_FRAMES * HOOHDESCENT_SILHOUETTE_ROWS * 2, \
+		"silhouette.png must be 64 pixels wide, with 48-pixel-tall frames"
+	assert SILHOUETTE_TILES_PER_COLUMN * HOOHDESCENT_SILHOUETTE_WIDTH <= 256, \
+		"silhouette.png has more than 5 frames"
+
+DEF DIVER_TILES_PER_COLUMN EQU (HoOhDescentDiverGFX.End - HoOhDescentDiverGFX) / TILE_SIZE / HOOHDESCENT_DIVER_WIDTH
+DEF DIVER_FRAMES EQU DIVER_TILES_PER_COLUMN / (HOOHDESCENT_DIVER_ROWS * 2)
+	assert DIVER_FRAMES >= 1 && DIVER_TILES_PER_COLUMN == DIVER_FRAMES * HOOHDESCENT_DIVER_ROWS * 2, \
+		"diver.png must be 64 pixels wide, with 64-pixel-tall frames"
+	assert DIVER_TILES_PER_COLUMN * HOOHDESCENT_DIVER_WIDTH <= 256, \
+		"diver.png has more than 4 frames"
+	assert HoOhDescentDiverPalettes.End - HoOhDescentDiverPalettes <= 4 palettes, \
+		"diver.png uses more than 4 palettes"
 
 _HoOhDescent::
 	ldh a, [rWBK]
@@ -51,12 +187,13 @@ _HoOhDescent::
 	jr nz, .done
 	call HoOhDescent_Jumptable
 	call HoOhDescent_UpdateSparkles
-	call HoOhDescent_CycleRainbow
 	call HoOhDescent_DrawSprites
 	ld hl, wHoOhDescentTimer
 	inc [hl]
 	call PushLYOverrides
 	call DelayFrame
+	ld a, [wHoOhDescentWX]
+	ldh [rWX], a
 	jr .loop
 
 .done
@@ -68,6 +205,8 @@ _HoOhDescent::
 	ld [wRequested2bppDest], a
 	ld [wRequested2bppDest + 1], a
 	ld [wRequested2bppSize], a
+	ld hl, rLCDC
+	res B_LCDC_OBJ_SIZE, [hl]
 
 	pop af
 	ldh [hVBlank], a
@@ -75,10 +214,13 @@ _HoOhDescent::
 	ldh [hBGMapMode], a
 	pop af
 	ldh [hWY], a
+	ldh [rWY], a
 	pop af
 	ldh [hSCY], a
 	pop af
 	ldh [hSCX], a
+	ldh a, [hWX]
+	ldh [rWX], a
 
 	pop af
 	ldh [rWBK], a
@@ -95,6 +237,10 @@ HoOhDescent_Init:
 	ld hl, wHoOhDescent
 	ld bc, wHoOhDescentEnd - wHoOhDescent
 	call ByteFill
+	ld a, -1
+	ld [wHoOhDescentObjFrame], a
+	ld a, HOOHDESCENT_WX_HIDDEN
+	ld [wHoOhDescentWX], a
 
 	ld hl, wLYOverrides
 	ld bc, wLYOverridesEnd - wLYOverrides
@@ -105,11 +251,18 @@ HoOhDescent_Init:
 	xor a
 	call ByteFill
 
+; The screen is already white, so build the first shot with the LCD off.
+	ld a, $ff
+	call HoOhDescent_FillPalettes
 	call DisableLCD
 ; The cutscene VBlank skips OAM updates on frames that change palettes,
 ; so clear out the overworld's sprites now.
 	call hTransferShadowOAM
-	ld a, SCREEN_HEIGHT_PX
+	ld hl, rLCDC
+	set B_LCDC_OBJ_SIZE, [hl]
+	ld a, HOOHDESCENT_WX_HIDDEN
+	ldh [rWX], a
+	ld a, HOOHDESCENT_LETTERBOX_ROWS * TILE_WIDTH
 	ldh [hWY], a
 	ldh [rWY], a
 
@@ -122,46 +275,121 @@ HoOhDescent_Init:
 	ld bc, HoOhDescentOBGFX.End - HoOhDescentOBGFX
 	call CopyBytes
 
-	ld hl, HoOhDescentPalettes
-	call HoOhDescent_LoadPalettes
+	call HoOhDescent_LoadCloseup
+
+; letterboxed sky
+	ld a, HOOHDESCENT_BG_SKY
+	call HoOhDescent_FillBGMap
+	hlbgcoord 0, 0
+	ld a, HOOHDESCENT_BG_BLACK
+	ld bc, HOOHDESCENT_LETTERBOX_ROWS * TILEMAP_WIDTH
+	call ByteFill
+	hlbgcoord 0, SCREEN_HEIGHT - HOOHDESCENT_LETTERBOX_ROWS
+	ld a, HOOHDESCENT_BG_BLACK
+	ld bc, HOOHDESCENT_LETTERBOX_ROWS * TILEMAP_WIDTH
+	call ByteFill
 
 	call EnableLCD
 	ret
 
-HoOhDescent_LoadPalettes:
-; Load BG palette 0 and OBJ palettes 0-1 from hl (3 palettes),
-; both as the current and the target palettes.
+HoOhDescent_LoadCloseup:
+; Load the close-up picture into VRAM bank 1 and lay it out on the window,
+; above the bottom letterbox. The LCD must be off.
+	ld a, 1
+	ldh [rVBK], a
+; the first 128 tiles go to $9000, the rest to $8800
+	ld a, BANK(HoOhDescentCloseupGFX)
+	ld hl, HoOhDescentCloseupGFX
+	ld de, vTiles2
+if CLOSEUP_TILES > 128
+	ld bc, 128 tiles
+	call FarCopyBytes
+	ld a, BANK(HoOhDescentCloseupGFX)
+	ld hl, HoOhDescentCloseupGFX + 128 tiles
+	ld de, vTiles1
+	ld bc, (CLOSEUP_TILES - 128) tiles
+else
+	ld bc, CLOSEUP_TILES tiles
+endc
+	call FarCopyBytes
+	xor a
+	ldh [rVBK], a
+
+; window rows: the picture, then the bottom letterbox
+	ld hl, vBGMap1
+	ld de, 0 ; index into the tilemap and attrmap
+	ld b, HOOHDESCENT_CLOSEUP_HEIGHT
+.row
+	ld c, HOOHDESCENT_CLOSEUP_WIDTH
 	push hl
-	ld de, wBGPals1
-	ld bc, 1 palettes
-	call CopyBytes
-	ld de, wOBPals1
-	ld bc, 2 palettes
-	call CopyBytes
+.column
+	push hl
+	ld hl, HoOhDescentCloseupTilemap
+	add hl, de
+	ld a, BANK(HoOhDescentCloseupTilemap)
+	call GetFarByte
 	pop hl
-	ld de, wBGPals2
-	ld bc, 1 palettes
-	call CopyBytes
-	ld de, wOBPals2
-	ld bc, 2 palettes
-	call CopyBytes
-	ld a, TRUE
-	ldh [hCGBPalUpdate], a
+	ld [hl], a
+	push hl
+	ld hl, HoOhDescentCloseupAttrmap
+	add hl, de
+	ld a, BANK(HoOhDescentCloseupAttrmap)
+	call GetFarByte
+	pop hl
+; the picture's palettes follow the sky's, and its tiles are in bank 1
+	and BG_PALETTE
+	inc a
+	or BG_BANK1
+	push af
+	ld a, 1
+	ldh [rVBK], a
+	pop af
+	ld [hli], a
+	xor a
+	ldh [rVBK], a
+	inc de
+	dec c
+	jr nz, .column
+	pop hl
+	push bc
+	ld bc, TILEMAP_WIDTH
+	add hl, bc
+	pop bc
+	dec b
+	jr nz, .row
+
+; hl = the first row under the picture
+	push hl
+	ld a, HOOHDESCENT_BG_BLACK
+	ld bc, HOOHDESCENT_LETTERBOX_ROWS * TILEMAP_WIDTH
+	call ByteFill
+	pop hl
+	ld a, 1
+	ldh [rVBK], a
+	xor a
+	ld bc, HOOHDESCENT_LETTERBOX_ROWS * TILEMAP_WIDTH
+	call ByteFill
+	xor a
+	ldh [rVBK], a
 	ret
 
 HoOhDescent_Jumptable:
 	jumptable .Jumptable, wJumptableIndex
 
 .Jumptable:
-	dw .Shot1Init
-	dw .Shot1Rise
-	dw .Shot2Init
-	dw .Shot2Fly
-	dw .Shot2Pan
-	dw .Shot3Init
-	dw .Shot3Descend
-	dw .FadeToWhite
-	dw .HoldWhite
+	dw .WhiteIn          ; 0
+	dw .SkyHold          ; 1
+	dw .CloseupSlide     ; 2
+	dw .CloseupHold      ; 3
+	dw .CutToClouds      ; 4
+	dw .CloudsStart      ; 5
+	dw .SilhouetteFlight ; 6
+	dw .CloudsTail       ; 7
+	dw .CutToDive        ; 8
+	dw .DiveStart        ; 9
+	dw .Dive             ; 10
+	dw .Hover            ; 11
+	dw .WhiteOut         ; 12
 
 .Next:
 	ld hl, wJumptableIndex
@@ -170,168 +398,189 @@ HoOhDescent_Jumptable:
 	ld [wHoOhDescentTimer], a
 	ret
 
-.Shot1Init:
-; Letterboxed sky; a light rises up through it.
-	call DisableLCD
-	ld a, HOOHDESCENT_BG_SKY
-	call HoOhDescent_FillBGMap
-	hlbgcoord 0, 0
-	call .Letterbox
-	hlbgcoord 0, SCREEN_HEIGHT - 2
-	call .Letterbox
-	call EnableLCD
+.WhiteIn:
+	ld a, [wHoOhDescentTimer]
+	cp HOOHDESCENT_WHITE_IN_FRAMES
+	ret c
+	call HoOhDescent_LoadSkyPalettes
+	ld hl, HoOhDescentCloseupPalettes
+	ld de, wBGPals1 palette 1
+	ld bc, HoOhDescentCloseupPalettes.End - HoOhDescentCloseupPalettes
+	call HoOhDescent_LoadFarPalettes
+	jr .Next
 
-	ld a, 80
-	ld [wHoOhDescentOrbX], a
-	ld a, SCREEN_HEIGHT_PX + 16
-	ld [wHoOhDescentOrbY], a
+.SkyHold:
+	ld a, [wHoOhDescentTimer]
+	cp HOOHDESCENT_SKY_FRAMES
+	ret c
 	ld de, SFX_SHINE
 	call PlaySFX
 	jr .Next
 
-.Letterbox:
-; Two rows of black drawn above sprites
-	push hl
-	ld a, HOOHDESCENT_BG_BLACK
-	ld bc, 2 * TILEMAP_WIDTH
-	call ByteFill
-	pop hl
-	ld a, 1
-	ldh [rVBK], a
-	ld a, BG_PRIO
-	ld bc, 2 * TILEMAP_WIDTH
-	call ByteFill
-	xor a
-	ldh [rVBK], a
-	ret
-
-.Shot1Rise:
-	ld hl, wHoOhDescentOrbY
+.CloseupSlide:
+	ld hl, wHoOhDescentWX
 	ld a, [hl]
-	and a
-	jr z, .shot1_wait
-	dec [hl]
-	call HoOhDescent_GetSway
-	add 76
-	ld [wHoOhDescentOrbX], a
-	ld a, [wHoOhDescentTimer]
-	and %11
-	call z, HoOhDescent_SpawnSparkle
+	sub HOOHDESCENT_CLOSEUP_SLIDE_SPEED
+	jr c, .slid_in
+	cp HOOHDESCENT_CLOSEUP_WX
+	jr c, .slid_in
+	ld [hl], a
 	ret
 
-.shot1_wait
+.slid_in
+	ld [hl], HOOHDESCENT_CLOSEUP_WX
+	jr .Next
+
+.CloseupHold:
 	ld a, [wHoOhDescentTimer]
-	cp SCREEN_HEIGHT_PX + 16 + 80
+	cp HOOHDESCENT_CLOSEUP_HOLD_FRAMES
 	ret c
 	jr .Next
 
-.Shot2Init:
-; High above the clouds; the light streaks across the sky.
-	call DisableLCD
-	ld a, HOOHDESCENT_BG_SKY
-	call HoOhDescent_FillBGMap
-	hlbgcoord 0, 10
-	ld a, HOOHDESCENT_BG_HAZE
-	ld bc, TILEMAP_WIDTH
-	call ByteFill
-	hlbgcoord 0, 11
-	ld a, HOOHDESCENT_BG_CLOUD_TOP
-	call HoOhDescent_FillCloudRow
-	hlbgcoord 0, 12
-	ld a, HOOHDESCENT_BG_CLOUD_MID
-	call HoOhDescent_FillCloudRow
-	hlbgcoord 0, 13
-	ld a, HOOHDESCENT_BG_CLOUD_FILL
-	ld bc, (TILEMAP_HEIGHT - 13) * TILEMAP_WIDTH
-	call ByteFill
-	call EnableLCD
+.CutToClouds:
+; Black out the screen, and stream in the next shot behind it.
+; (the timer has already ticked once when a state first runs)
+	ld a, [wHoOhDescentTimer]
+	cp 1
+	jr nz, .wait_black
+	call HoOhDescent_BlackOut
+	ld de, HoOhDescentCloudsMap
+	call HoOhDescent_StreamBGMap
+	ld de, HoOhDescentSilhouetteGFX
+	ld c, (HoOhDescentSilhouetteGFX.End - HoOhDescentSilhouetteGFX) / TILE_SIZE
+	call HoOhDescent_StreamObjectTiles
+.wait_black
+	ld a, [wHoOhDescentTimer]
+	cp HOOHDESCENT_BLACK_FRAMES
+	ret c
+	jp .Next
 
-	call HoOhDescent_ClearSparkles
+.CloudsStart:
+	call HoOhDescent_LoadSkyPalettes
+	ld hl, HoOhDescentSilhouettePalette
+	ld de, wOBPals1 palette HOOHDESCENT_PAL_SILHOUETTE
+	ld bc, 1 palettes
+	call HoOhDescent_LoadFarPalettes
+	xor a
+	ld [wHoOhDescentObjPos], a
+	ld [wHoOhDescentObjSubpixel], a
+	ld hl, HoOhDescentSilhouetteSequence
+	call HoOhDescent_StartAnimation
 	ld a, LOW(rSCX)
 	ldh [hLCDCPointer], a
-	ld a, SCREEN_WIDTH_PX + 16
-	ld [wHoOhDescentOrbX], a
-	ld a, 64
-	ld [wHoOhDescentOrbY], a
 	ld de, SFX_TWINKLE
 	call PlaySFX
 	jp .Next
 
-.Shot2Fly:
-	call HoOhDescent_ScrollClouds
-	ld hl, wHoOhDescentOrbX
+.SilhouetteFlight:
+	call HoOhDescent_DriftClouds
+; fly left at HOOHDESCENT_SILHOUETTE_SPEED / 8 pixels per frame
+	ld hl, wHoOhDescentObjSubpixel
 	ld a, [hl]
-	and a
-	jr z, .shot2_wait
-	dec [hl]
-	call HoOhDescent_GetSway
-	add 60
-	ld [wHoOhDescentOrbY], a
+	add HOOHDESCENT_SILHOUETTE_SPEED
+	ld b, a
+	and %111
+	ld [hl], a
+	ld a, b
+	srl a
+	srl a
+	srl a
+	ld hl, wHoOhDescentObjPos
+	add [hl]
+	ld [hl], a
+	cp HOOHDESCENT_SILHOUETTE_TRAVEL
+	jr nc, .flown_past
+	ld hl, HoOhDescentSilhouetteSequence
+	call HoOhDescent_Animate
 	ld a, [wHoOhDescentTimer]
-	and %11
-	call z, HoOhDescent_SpawnSparkle
-	ret
+	and %111
+	ret nz
+	jp HoOhDescent_SpawnSparkle
 
-.shot2_wait
+.flown_past
+	ld a, -1
+	ld [wHoOhDescentObjFrame], a
+	jp .Next
+
+.CloudsTail:
+	call HoOhDescent_DriftClouds
 	ld a, [wHoOhDescentTimer]
-	cp SCREEN_WIDTH_PX + 16 + 40
+	cp HOOHDESCENT_CLOUDS_TAIL_FRAMES
 	ret c
 	jp .Next
 
-.Shot2Pan:
-; Look down into the clouds
-	call HoOhDescent_ScrollClouds
-	ld hl, wHoOhDescentPanY
-	inc [hl]
-	ld a, [hl]
-	ldh [hSCY], a
-	cp 9 * TILE_WIDTH
-	ret c
-	jp .Next
-
-.Shot3Init:
-; Below the clouds; the light comes down through falling leaves.
-	call DisableLCD
+.CutToDive:
+	ld a, [wHoOhDescentTimer]
+	cp 1
+	jr nz, .wait_black_2
 	xor a
 	ldh [hLCDCPointer], a
 	ldh [hSCX], a
 	ldh [hSCY], a
-	ld a, HOOHDESCENT_BG_SKY
-	call HoOhDescent_FillBGMap
-	call HoOhDescent_DrawStreaks
-	call EnableLCD
+	call HoOhDescent_BlackOut
+	ld de, HoOhDescentStreaksMap
+	call HoOhDescent_StreamBGMap
+	ld de, HoOhDescentDiverGFX
+	ld c, (HoOhDescentDiverGFX.End - HoOhDescentDiverGFX) / TILE_SIZE
+	call HoOhDescent_StreamObjectTiles
+.wait_black_2
+	ld a, [wHoOhDescentTimer]
+	cp HOOHDESCENT_BLACK_FRAMES
+	ret c
+	jp .Next
 
-	call HoOhDescent_ClearSparkles
+.DiveStart:
+	call HoOhDescent_LoadSkyPalettes
+	ld hl, HoOhDescentDiverPalettes
+	ld de, wOBPals1 palette HOOHDESCENT_PAL_DIVER
+	ld bc, HoOhDescentDiverPalettes.End - HoOhDescentDiverPalettes
+	call HoOhDescent_LoadFarPalettes
 	call HoOhDescent_InitLeaves
-	ld a, 80
-	ld [wHoOhDescentOrbX], a
-	ld a, 1
-	ld [wHoOhDescentOrbY], a
+	xor a
+	ld [wHoOhDescentObjPos], a ; above the screen
+	ld [wHoOhDescentObjSubpixel], a
+	ld [wHoOhDescentObjFrame], a
 	ld de, SFX_METRONOME
 	call PlaySFX
 	jp .Next
 
-.Shot3Descend:
+.Dive:
 	call .FallingBackground
-	ld hl, wHoOhDescentOrbY
+; come down at HOOHDESCENT_DIVE_SPEED / 2 pixels per frame
+	ld hl, wHoOhDescentObjSubpixel
 	ld a, [hl]
-	cp HOOHDESCENT_ORB_HOVER_Y
-	jr nc, .hover
-	inc [hl]
-	ld a, [wHoOhDescentTimer]
-	and %11
-	call z, HoOhDescent_SpawnSparkle
+	add HOOHDESCENT_DIVE_SPEED
+	ld b, a
+	and 1
+	ld [hl], a
+	ld a, b
+	srl a
+	ld hl, wHoOhDescentObjPos
+	add [hl]
+	cp HOOHDESCENT_DIVER_TOP + HOOHDESCENT_DIVER_POS_OFFSET
+	jr nc, .landed
+	ld [hl], a
 	ret
 
-.hover
+.landed
+	ld [hl], HOOHDESCENT_DIVER_TOP + HOOHDESCENT_DIVER_POS_OFFSET
+	ld hl, HoOhDescentDiverHoverSequence
+	call HoOhDescent_StartAnimation
+	jp .Next
+
+.Hover:
+	call .FallingBackground
+	ld hl, HoOhDescentDiverHoverSequence
+	call HoOhDescent_Animate
 	ld a, [wHoOhDescentTimer]
-	and %1
-	call z, HoOhDescent_SpawnSparkle
-	ld a, [wHoOhDescentTimer]
-	cp HOOHDESCENT_ORB_HOVER_Y + 150
+	cp HOOHDESCENT_HOVER_FRAMES
 	ret c
-	ld de, SFX_FLASH
-	call PlaySFX
+; cut straight to white
+	ld a, $ff
+	call HoOhDescent_FillPalettes
+	ld a, -1
+	ld [wHoOhDescentObjFrame], a
+	call HoOhDescent_ClearLeaves
 	jp .Next
 
 .FallingBackground:
@@ -340,36 +589,153 @@ HoOhDescent_Jumptable:
 	ldh [hSCY], a
 	jp HoOhDescent_UpdateLeaves
 
-.FadeToWhite:
-	call .FallingBackground
+.WhiteOut:
 	ld a, [wHoOhDescentTimer]
-	ld c, a
-	and %11
-	ret nz
-	ld a, c
-	rrca
-	rrca
-	and %111 ; step
-	cp 4
-	jr nc, .faded
-	ld hl, HoOhDescentFadePalettes
-	ld bc, 3 palettes
-	call AddNTimes
-	jp HoOhDescent_LoadPalettes
-
-.faded
-	call HoOhDescent_ClearSparkles
-	call HoOhDescent_ClearLeaves
-	xor a
-	ld [wHoOhDescentOrbY], a
-	jp .Next
-
-.HoldWhite:
-	ld a, [wHoOhDescentTimer]
-	cp 60
+	cp HOOHDESCENT_WHITE_OUT_FRAMES
 	ret c
 	ld hl, wJumptableIndex
 	set JUMPTABLE_EXIT_F, [hl]
+	ret
+
+HoOhDescentSilhouetteSequence:
+; frame, duration in frames; frames beyond the picture's use its last frame
+	db 0, 45
+	db 1, 15
+	db -1
+
+HoOhDescentDiverHoverSequence:
+	db 0, 12
+	db 1, 24
+	db 0, 12
+	db 2, 12
+	db -1
+
+HoOhDescent_BlackOut:
+; Black out every palette, and hide the window and sprites.
+	xor a
+	call HoOhDescent_FillPalettes
+	ld a, HOOHDESCENT_WX_HIDDEN
+	ld [wHoOhDescentWX], a
+	ldh [rWX], a
+	ld a, -1
+	ld [wHoOhDescentObjFrame], a
+	call HoOhDescent_ClearSparkles
+	call HoOhDescent_ClearLeaves
+	jp HoOhDescent_DrawSprites
+
+HoOhDescent_StreamBGMap:
+; Copy the 32x32 map at de to the BG map, with all-zero attributes,
+; while the screen is blacked out.
+	ld hl, vBGMap0
+	ld b, BANK(HoOhDescentCloudsMap)
+	ld c, TILEMAP_AREA / TILE_SIZE
+	call Get2bppViaHDMA
+	ld a, 1
+	ldh [rVBK], a
+	ld de, HoOhDescentZeroAttrmap
+	ld hl, vBGMap0
+	ld b, BANK(HoOhDescentZeroAttrmap)
+	ld c, TILEMAP_AREA / TILE_SIZE
+	call Get2bppViaHDMA
+	xor a
+	ldh [rVBK], a
+	ret
+
+HoOhDescent_StreamObjectTiles:
+; Copy c tiles from BANK(HoOhDescentSilhouetteGFX):de to vTiles0 in VRAM bank 1,
+; at most 64 tiles at a time, while the screen is blacked out.
+	ld hl, vTiles0
+.loop
+	ld a, c
+	and a
+	ret z
+	cp 64
+	jr c, .got_count
+	ld a, 64
+.got_count
+	ld b, a ; tiles in this chunk
+	push bc
+	push de
+	push hl
+	ld c, b
+	ld b, BANK(HoOhDescentSilhouetteGFX)
+	ld a, 1
+	ldh [rVBK], a
+	call Get2bppViaHDMA
+	xor a
+	ldh [rVBK], a
+	pop hl
+	pop de
+	pop bc
+; advance the source and destination by b tiles
+	push bc
+	push hl
+	ld l, b
+	ld h, 0
+	add hl, hl
+	add hl, hl
+	add hl, hl
+	add hl, hl
+	ld b, h
+	ld c, l
+	pop hl
+	add hl, bc
+	ld a, e
+	add c
+	ld e, a
+	ld a, d
+	adc b
+	ld d, a
+	pop bc
+	ld a, c
+	sub b
+	ld c, a
+	jr .loop
+
+HoOhDescent_FillPalettes:
+; Fill every BG and object palette with color byte a (0 = black, $ff = white).
+	ld hl, wBGPals1
+	ld bc, 16 palettes
+	push af
+	call ByteFill
+	pop af
+	ld hl, wBGPals2
+	ld bc, 16 palettes
+	call ByteFill
+	ld a, TRUE
+	ldh [hCGBPalUpdate], a
+	ret
+
+HoOhDescent_LoadSkyPalettes:
+; The sky, sparkle and leaf palettes, with everything else black.
+	xor a
+	ld hl, wBGPals1
+	ld bc, 16 palettes
+	call ByteFill
+	ld hl, HoOhDescentSkyPalette
+	ld de, wBGPals1
+	ld bc, 1 palettes
+	call CopyBytes
+	ld hl, HoOhDescentObjectPalettes
+	ld de, wOBPals1
+	ld bc, 2 palettes
+	call CopyBytes
+	jr HoOhDescent_ApplyPalettes
+
+HoOhDescent_LoadFarPalettes:
+; Copy bc bytes of palettes from BANK(HoOhDescentCloseupPalettes):hl to de,
+; within wBGPals1 or wOBPals1.
+	ld a, BANK(HoOhDescentCloseupPalettes)
+	call FarCopyBytes
+	; fallthrough
+
+HoOhDescent_ApplyPalettes:
+	ld hl, wBGPals1
+	ld de, wBGPals2
+	ld bc, 16 palettes
+	call CopyBytes
+	ld a, TRUE
+	ldh [hCGBPalUpdate], a
 	ret
 
 HoOhDescent_FillBGMap:
@@ -387,136 +753,70 @@ HoOhDescent_FillBGMap:
 	ldh [rVBK], a
 	ret
 
-HoOhDescent_FillCloudRow:
-; Fill one BG map row at hl with the 4-tile cloud pattern starting at tile a.
-	ld b, a
-	ld c, 0
-.loop
-	ld a, c
-	and %11
-	add b
-	ld [hli], a
-	inc c
-	ld a, c
-	cp TILEMAP_WIDTH
-	jr c, .loop
-	ret
-
-HoOhDescent_DrawStreaks:
-; Scatter light streaks over the sky, in a pattern that wraps seamlessly.
-	ld hl, vBGMap0
-	ld b, 0 ; row
-.row
-	ld c, 0 ; column
-.column
-	ld a, c
-	add a
-	add c ; column * 3
-	ld e, a
-	ld a, b
-	add a
-	add a
-	add b ; row * 5
-	add e
-	and %111
-	ld a, HOOHDESCENT_BG_SKY
-	jr nz, .got_tile
-	ld a, HOOHDESCENT_BG_STREAK
-.got_tile
-	ld [hli], a
-	inc c
-	ld a, c
-	cp TILEMAP_WIDTH
-	jr c, .column
-	inc b
-	ld a, b
-	cp TILEMAP_HEIGHT
-	jr c, .row
-	ret
-
-HoOhDescent_ScrollClouds:
+HoOhDescent_DriftClouds:
 ; Drift the clouds sideways, leaving the sky above them still.
 	ld a, [wHoOhDescentTimer]
-	and 1
+	and %11
 	jr nz, .no_scroll
 	ld hl, wHoOhDescentCloudScroll
 	inc [hl]
 .no_scroll
-	ld a, [wHoOhDescentPanY]
-	ld b, a
-	ld a, 11 * TILE_WIDTH
-	sub b
-	jr nc, .got_sky_lines
-	xor a
-.got_sky_lines
 	ld hl, wLYOverridesBackup
-	and a
-	jr z, .clouds
-	push af
-	ld c, a
-	ld b, 0
+	ld bc, HOOHDESCENT_CLOUD_ROW * TILE_WIDTH
 	xor a
 	call ByteFill
-	pop af
-.clouds
-	cpl
-	inc a
-	add SCREEN_HEIGHT_PX ; lines left for the clouds
-	ld c, a
-	ld b, 0
+	ld bc, SCREEN_HEIGHT_PX - HOOHDESCENT_CLOUD_ROW * TILE_WIDTH
 	ld a, [wHoOhDescentCloudScroll]
 	jp ByteFill
 
-HoOhDescent_GetSway:
-; Return a gentle 0-8 back-and-forth offset based on the timer.
-	ld a, [wHoOhDescentTimer]
-	srl a
-	and %11111
-	ld e, a
-	ld d, 0
-	ld hl, .Sine
-	add hl, de
-	ld a, [hl]
+HoOhDescent_StartAnimation:
+; Start the frame sequence at hl.
+	ld a, l
+	ld [wHoOhDescentAnimPointer], a
+	ld a, h
+	ld [wHoOhDescentAnimPointer + 1], a
+	jr HoOhDescent_LoadAnimationStep
+
+HoOhDescent_Animate:
+; Advance the frame sequence that starts at hl, looping at its end.
+	ld a, [wHoOhDescentAnimTimer]
+	and a
+	jr z, .next_step
+	dec a
+	ld [wHoOhDescentAnimTimer], a
 	ret
 
-.Sine:
-	db 4, 5, 6, 6, 7, 7, 8, 8, 8, 8, 8, 7, 7, 6, 6, 5
-	db 4, 3, 2, 2, 1, 1, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3
-
-HoOhDescent_CycleRainbow:
-; Cycle the light's glow through the colors of the rainbow.
-	ld a, [wJumptableIndex]
-	cp 7 ; .FadeToWhite
-	ret nc
-	ld a, [wHoOhDescentTimer]
-	and %11
-	ret nz
-	ld hl, wHoOhDescentRainbowIndex
-	ld a, [hl]
-	inc a
-	cp (HoOhDescentRainbowColors.End - HoOhDescentRainbowColors) / COLOR_SIZE
-	jr c, .got_index
-	xor a
-.got_index
-	ld [hl], a
-	add a
-	ld e, a
-	ld d, 0
-	ld hl, HoOhDescentRainbowColors
-	add hl, de
+.next_step
+	ld d, h
+	ld e, l
+	ld hl, wHoOhDescentAnimPointer
 	ld a, [hli]
-	ld d, [hl]
-	ld e, a
-	ld hl, wOBPals1 color 2
-	ld a, e
-	ld [hli], a
-	ld [hl], d
-	ld hl, wOBPals2 color 2
-	ld a, e
-	ld [hli], a
-	ld [hl], d
-	ld a, TRUE
-	ldh [hCGBPalUpdate], a
+	ld h, [hl]
+	ld l, a
+	inc hl
+	inc hl
+	ld a, [hl]
+	cp -1
+	jr nz, .got_step
+	ld h, d
+	ld l, e
+.got_step
+	ld a, l
+	ld [wHoOhDescentAnimPointer], a
+	ld a, h
+	ld [wHoOhDescentAnimPointer + 1], a
+	; fallthrough
+
+HoOhDescent_LoadAnimationStep:
+	ld hl, wHoOhDescentAnimPointer
+	ld a, [hli]
+	ld h, [hl]
+	ld l, a
+	ld a, [hli] ; frame
+	ld [wHoOhDescentObjFrame], a
+	ld a, [hl] ; duration
+	dec a
+	ld [wHoOhDescentAnimTimer], a
 	ret
 
 HoOhDescent_ClearSparkles:
@@ -532,7 +832,12 @@ HoOhDescent_ClearLeaves:
 	jp ByteFill
 
 HoOhDescent_SpawnSparkle:
-; Leave a sparkle near the light, reusing the oldest sparkle slot.
+; Leave a sparkle behind (to the right of) the silhouette, if that is on screen.
+	ld a, [wHoOhDescentObjPos]
+	cp 45
+	ret c
+	cp 200
+	ret nc
 	ld a, [wHoOhDescentSparkleSlot]
 	inc a
 	cp HOOHDESCENT_NUM_SPARKLES
@@ -547,21 +852,24 @@ HoOhDescent_SpawnSparkle:
 	ld d, 0
 	ld hl, wHoOhDescentSparkles
 	add hl, de
+; x = the silhouette's rear (160 - pos + 44) + 0-15, as OAM x
 	push hl
 	call Random
 	pop hl
-	and %111
+	and %1111
 	ld b, a
-	ld a, [wHoOhDescentOrbX]
+	ld a, [wHoOhDescentObjPos]
+	cpl
+	inc a
+	add SCREEN_WIDTH_PX + 44 + OAM_X_OFS
 	add b
 	ld [hli], a
+; y = the silhouette's lower half and below, as OAM y
 	push hl
 	call Random
 	pop hl
-	and %111
-	ld b, a
-	ld a, [wHoOhDescentOrbY]
-	add b
+	and %11111
+	add HOOHDESCENT_SILHOUETTE_TOP + 18 + OAM_Y_OFS
 	ld [hli], a
 	ld [hl], HOOHDESCENT_SPARKLE_LIFE
 	ret
@@ -593,7 +901,8 @@ HoOhDescent_InitLeaves:
 	add 24
 	ld [hli], a ; x
 	ld a, c
-	swap a ; * 16
+	swap a
+	add a ; * 32
 	add 8
 	ld [hli], a ; y
 	push hl
@@ -663,40 +972,16 @@ HoOhDescent_UpdateLeaves:
 
 HoOhDescent_DrawSprites:
 	ld hl, wShadowOAM
-
-; the light
-	ld a, [wHoOhDescentOrbY]
-	and a
+	ld a, [wHoOhDescentObjFrame]
+	cp -1
 	jr z, .sparkles
-	ld d, a
-	ld a, [wHoOhDescentOrbX]
-	and a
-	jr z, .sparkles
-	ld e, a
-	ld a, [wHoOhDescentTimer]
-	and %1000
-	rrca ; 0 or 4
-	ld c, a
-	ld b, 0 ; attributes
-	call .WriteSprite ; top left
-	ld a, e
-	add TILE_WIDTH
-	ld e, a
-	inc c
-	call .WriteSprite ; top right
-	ld a, d
-	add TILE_WIDTH
-	ld d, a
-	ld a, e
-	sub TILE_WIDTH
-	ld e, a
-	inc c
-	call .WriteSprite ; bottom left
-	ld a, e
-	add TILE_WIDTH
-	ld e, a
-	inc c
-	call .WriteSprite ; bottom right
+	ld a, [wJumptableIndex]
+	cp HOOHDESCENT_FIRST_DIVE_STATE
+	jr nc, .diver
+	call HoOhDescent_DrawSilhouette
+	jr .sparkles
+.diver
+	call HoOhDescent_DrawDiver
 
 .sparkles
 	ld de, wHoOhDescentSparkles
@@ -713,10 +998,15 @@ HoOhDescent_DrawSprites:
 	inc de
 	and a
 	jr z, .next_sparkle
-	cp HOOHDESCENT_SPARKLE_LIFE / 2
-	ld a, HOOHDESCENT_OB_SPARKLE_SMALL
-	jr c, .got_sparkle_tile
+; twinkle, then fade to a small sparkle
+	cp 20
+	jr c, .small_sparkle
+	and %1000
+	jr z, .small_sparkle
 	ld a, HOOHDESCENT_OB_SPARKLE_BIG
+	jr .got_sparkle_tile
+.small_sparkle
+	ld a, HOOHDESCENT_OB_SPARKLE_SMALL
 .got_sparkle_tile
 	push af
 	ld a, b
@@ -725,14 +1015,14 @@ HoOhDescent_DrawSprites:
 	ld [hli], a
 	pop af
 	ld [hli], a
-	ld [hl], 0 ; OBJ palette 0
+	ld [hl], HOOHDESCENT_PAL_SPARKLE
 	inc hl
 .next_sparkle
 	pop bc
 	dec b
 	jr nz, .sparkle_loop
 
-; the leaves
+; leaves
 	ld de, wHoOhDescentLeaves
 	ld b, HOOHDESCENT_NUM_LEAVES
 .leaf_loop
@@ -750,7 +1040,6 @@ HoOhDescent_DrawSprites:
 	ld a, b
 	and a
 	jr z, .next_leaf
-	ld a, b
 	ld [hli], a
 	ld a, c
 	ld [hli], a
@@ -763,7 +1052,7 @@ HoOhDescent_DrawSprites:
 	ld [hli], a
 	ld a, e
 	and %100000
-	ld a, 1 ; OBJ palette 1
+	ld a, HOOHDESCENT_PAL_LEAF
 	jr z, .got_leaf_attr
 	or OAM_XFLIP
 .got_leaf_attr
@@ -783,49 +1072,158 @@ HoOhDescent_DrawSprites:
 	ld [hli], a
 	jr .clear
 
-.WriteSprite:
-; Write OAM entry at hl: y = d, x = e, tile = c, attributes = b
-	ld a, d
-	ld [hli], a
-	ld a, e
-	ld [hli], a
+HoOhDescent_DrawSilhouette:
+; 8x16 objects in columns; column c's left edge is at screen x 160 - pos + 8c.
+; Tile = column base + frame * rows * 2 + row * 2 (the picture is read by columns).
+	ld a, [wHoOhDescentObjFrame]
+	cp SILHOUETTE_FRAMES
+	jr c, .got_frame
+	ld a, SILHOUETTE_FRAMES - 1
+.got_frame
+	ld e, a
+	add a
+	add e
+	add a ; * rows * 2
+	ld e, a
+	ld c, 0 ; column
+.column
 	ld a, c
+	add a
+	add a
+	add a
+	ld b, a ; 8c
+	ld a, [wHoOhDescentObjPos]
+	sub b
+	jr c, .next_column ; still past the right edge
+	jr z, .next_column
+	cp SCREEN_WIDTH_PX + OAM_X_OFS
+	jr nc, .next_column ; past the left edge
+	ld b, a
+	ld a, SCREEN_WIDTH_PX + OAM_X_OFS
+	sub b
+	ld b, a ; OAM x
+	push de
+	push hl
+	ld hl, .ColumnBases
+	ld d, 0
+	ld a, e
+	ld e, c
+	add hl, de
+	add [hl]
+	pop hl
+	ld e, a ; this column's first tile for the frame
+	ld d, HOOHDESCENT_SILHOUETTE_TOP + OAM_Y_OFS
+rept HOOHDESCENT_SILHOUETTE_ROWS
+	ld a, d
 	ld [hli], a
 	ld a, b
 	ld [hli], a
+	ld a, e
+	ld [hli], a
+	ld a, OAM_BANK1 | HOOHDESCENT_PAL_SILHOUETTE
+	ld [hli], a
+	ld a, d
+	add 16
+	ld d, a
+	inc e
+	inc e
+endr
+	pop de
+.next_column
+	inc c
+	ld a, c
+	cp HOOHDESCENT_SILHOUETTE_WIDTH
+	jr c, .column
 	ret
 
-HoOhDescentPalettes:
-	RGB 15,23,31, 31,31,31, 22,26,31, 00,00,00 ; sky
-	RGB 31,31,31, 31,31,31, 31,12,20, 31,24,06 ; light and sparkles
+.ColumnBases:
+for column, HOOHDESCENT_SILHOUETTE_WIDTH
+	db column * SILHOUETTE_TILES_PER_COLUMN
+endr
+
+HoOhDescent_DrawDiver:
+; 8x16 objects in columns, with each object's palette taken from its top tile.
+	ld a, [wHoOhDescentObjFrame]
+	cp DIVER_FRAMES
+	jr c, .got_frame
+	ld a, DIVER_FRAMES - 1
+.got_frame
+	add a
+	add a
+	add a ; * rows * 2
+	ld e, a
+	ld c, 0 ; column
+.column
+	ld b, 0 ; row
+.row
+; OAM y = pos + 16 * row - 48, hidden while above the screen
+	ld a, b
+	swap a
+	ld d, a
+	ld a, [wHoOhDescentObjPos]
+	add d
+	sub HOOHDESCENT_DIVER_POS_OFFSET - OAM_Y_OFS
+	jr c, .next_row
+	jr z, .next_row
+	ld [hli], a
+	ld a, c
+	add a
+	add a
+	add a
+	add HOOHDESCENT_DIVER_LEFT + OAM_X_OFS
+	ld [hli], a
+; tile = column base + frame's first tile + row * 2
+	push hl
+	ld hl, .ColumnBases
+	ld d, 0
+	push de
+	ld e, c
+	add hl, de
+	pop de
+	ld a, [hl]
+	add e
+	add b
+	add b
+	ld d, a ; tile
+	ld hl, HoOhDescentDiverAttrmap
+	push de
+	ld e, a
+	ld d, 0
+	add hl, de
+	pop de
+	ld a, BANK(HoOhDescentDiverAttrmap)
+	call GetFarByte
+	and OAM_PALETTE
+	add HOOHDESCENT_PAL_DIVER
+	or OAM_BANK1
+	pop hl
+	push af
+	ld a, d
+	ld [hli], a
+	pop af
+	ld [hli], a
+.next_row
+	inc b
+	ld a, b
+	cp HOOHDESCENT_DIVER_ROWS
+	jr c, .row
+	inc c
+	ld a, c
+	cp HOOHDESCENT_DIVER_WIDTH
+	jr c, .column
+	ret
+
+.ColumnBases:
+for column, HOOHDESCENT_DIVER_WIDTH
+	db column * DIVER_TILES_PER_COLUMN
+endr
+
+HoOhDescentSkyPalette:
+	RGB 15,23,31, 31,31,31, 22,26,31, 00,00,00
+
+HoOhDescentObjectPalettes:
+	RGB 31,31,31, 31,31,31, 31,29,06, 31,20,04 ; sparkles
 	RGB 31,31,31, 31,24,04, 31,12,02, 18,06,02 ; leaves
-
-HoOhDescentFadePalettes:
-; step 1
-	RGB 19,25,31, 31,31,31, 24,27,31, 08,08,08
-	RGB 31,31,31, 31,31,31, 31,17,23, 31,26,12
-	RGB 31,31,31, 31,26,11, 31,17,09, 21,12,09
-; step 2
-	RGB 23,27,31, 31,31,31, 26,28,31, 16,16,16
-	RGB 31,31,31, 31,31,31, 31,22,26, 31,28,18
-	RGB 31,31,31, 31,28,18, 31,22,16, 24,18,16
-; step 3
-	RGB 27,29,31, 31,31,31, 29,30,31, 23,23,23
-	RGB 31,31,31, 31,31,31, 31,26,28, 31,29,25
-	RGB 31,31,31, 31,29,24, 31,26,24, 28,25,24
-; step 4
-	RGB 31,31,31, 31,31,31, 31,31,31, 31,31,31
-	RGB 31,31,31, 31,31,31, 31,31,31, 31,31,31
-	RGB 31,31,31, 31,31,31, 31,31,31, 31,31,31
-
-HoOhDescentRainbowColors:
-	RGB 31,06,06 ; red
-	RGB 31,18,04 ; orange
-	RGB 31,29,06 ; yellow
-	RGB 08,28,08 ; green
-	RGB 06,16,31 ; blue
-	RGB 22,08,30 ; violet
-.End:
 
 HoOhDescentBGGFX:
 INCBIN "gfx/overworld/ho_oh_descent_bg.2bpp"
