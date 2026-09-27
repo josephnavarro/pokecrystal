@@ -51,8 +51,8 @@ TilesetForestAnim:
 
 TilesetJohtoAnim:
 	tileframe AnimateWaterTile,        vTiles2 tile $14
-	tileframe WaitTileAnimation
-	tileframe WaitTileAnimation
+	tileframe RustlingTreeLeftAnimation,  vTiles2 tile $20
+	tileframe RustlingTreeRightAnimation, vTiles2 tile $21
 	tileframe AnimateWaterPalette
 	tileframe WaitTileAnimation
 	tileframe AnimateFlowerTile

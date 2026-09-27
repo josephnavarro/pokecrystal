@@ -393,6 +393,45 @@ ForestTreeRightAnimation2:
 	ld hl, vTiles2 tile $0f
 	jp WriteTile
 
+RustlingTreeLeftAnimation:
+; Like ForestTreeLeftAnimation, but always rustling
+; Save the stack pointer in bc for WriteTile to restore
+	ld hl, sp+0
+	ld b, h
+	ld c, l
+
+	ld hl, ForestTreeLeftFrames
+	jr RustlingTreeAnimation
+
+RustlingTreeRightAnimation:
+; Like ForestTreeRightAnimation, but always rustling
+; Save the stack pointer in bc for WriteTile to restore
+	ld hl, sp+0
+	ld b, h
+	ld c, l
+
+	ld hl, ForestTreeRightFrames
+	; fallthrough
+
+RustlingTreeAnimation:
+; A cycle of 2 frames, alternating every time wTileAnimationTimer ticks
+	ld a, [wTileAnimationTimer]
+	and 1
+	swap a ; a *= TILE_SIZE
+
+; hl += a
+	add l
+	ld l, a
+	adc h
+	sub l
+	ld h, a
+
+; Write the tile graphic from hl (now sp) to de (now hl)
+	ld sp, hl
+	ld h, d
+	ld l, e
+	jp WriteTile
+
 GetForestTreeFrame:
 ; Return 0 if a is even, or 2 if odd.
 	and a

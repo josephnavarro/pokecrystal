@@ -116,7 +116,7 @@ MACRO connection
 ENDM
 
 
-	map_attributes NewBarkTown, NEW_BARK_TOWN, $05
+	map_attributes NewBarkTown, NEW_BARK_TOWN, $7d
 	connection west, Route29, ROUTE_29, 0
 	connection east, Route27, ROUTE_27, 0
 
