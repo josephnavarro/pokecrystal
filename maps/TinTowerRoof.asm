@@ -89,10 +89,22 @@ TinTowerRoofHoOhEventScript:
 	pause 30
 	special FadeOutMusic
 	special FadeOutToWhite
-; Ho-Oh is already on the roof when the screen fades back in
+; While the screen is white, hide the player and raise the camera to the
+; top of the spire, where Ho-Oh will appear.
+	applymovement PLAYER, TinTowerRoofCameraRisesMovement
+; full-screen specials expect the BG map anchored at its top-left
+	reanchormap
+	moveobject TINTOWERROOF_HO_OH, 9, 0
 	appear TINTOWERROOF_HO_OH
 	special HoOhDescent
+	pause 45
+; The camera pans back down to the player as Ho-Oh comes down the spire
+	callasm TinTowerRoofHoOhDescendsAsm
 	pause 60
+	playsound SFX_SHINE
+	special FadeOutToWhite
+	special FadeInFromWhite
+	pause 30
 	cry HO_OH
 	waitsfx
 	special RestartMapMusic
@@ -106,20 +118,51 @@ TinTowerRoofHoOhEventScript:
 	sjump TinTowerHoOh
 
 TinTowerRoofKimonoGirlsDanceAsm:
-; Start every kimono girl's lane of TinTowerRoofDanceLanes at once,
-; then make the script wait until the dance is over.
-	ld a, BANK(TinTowerRoofDanceLanes)
+	ld de, TinTowerRoofDanceLanes
+	ld hl, .Dancers
+	jr TinTowerRoofStartLanes
+
+.Dancers:
+	db TINTOWERROOF_KIMONO_GIRL1
+	db TINTOWERROOF_KIMONO_GIRL2
+	db TINTOWERROOF_KIMONO_GIRL3
+	db TINTOWERROOF_KIMONO_GIRL4
+	db TINTOWERROOF_KIMONO_GIRL5
+	db -1
+
+TinTowerRoofHoOhDescendsAsm:
+	ld de, TinTowerRoofHoOhDescendsLanes
+	ld hl, .Movers
+	jr TinTowerRoofStartLanes
+
+.Movers:
+	db PLAYER
+	db TINTOWERROOF_HO_OH
+	db -1
+
+TinTowerRoofStartLanes:
+; Start the objects listed at hl (-1-terminated) on their lanes of the
+; movement lanes at de, all at once, then make the script wait until
+; the first of them reaches step_end.
+	ld a, BANK(@)
 	ld [wDanceMovementBank], a
-	ld a, LOW(TinTowerRoofDanceLanes)
+	ld a, e
 	ld [wDanceMovementPointer], a
-	ld a, HIGH(TinTowerRoofDanceLanes)
+	ld a, d
 	ld [wDanceMovementPointer + 1], a
 
 	ld d, 0 ; lane
 .loop
-; object constants are one more than map object indexes (see GetScriptObject)
-	ld a, d
-	add TINTOWERROOF_KIMONO_GIRL1 - 1
+	ld a, [hli]
+	cp -1
+	jr z, .started
+; object constants are one more than map object indexes, except PLAYER
+; (see GetScriptObject)
+	and a
+	jr z, .got_object
+	dec a
+.got_object
+	push hl
 	push de
 	call CheckObjectVisibility
 	pop de
@@ -140,18 +183,48 @@ TinTowerRoofKimonoGirlsDanceAsm:
 	add hl, bc
 	res FROZEN_F, [hl]
 .next
+	pop hl
 	inc d
-	ld a, d
-	cp NUM_TINTOWERROOF_KIMONO_GIRLS
-	jr c, .loop
+	jr .loop
 
-; Every lane lasts equally long, so the script resumes
-; as soon as the first dancer reaches step_end.
+.started
 	ld hl, wStateFlags
 	set SCRIPTED_MOVEMENT_STATE_F, [hl]
 	ld a, SCRIPT_WAIT_MOVEMENT
 	ld [wScriptMode], a
 	ret
+
+TinTowerRoofHoOhDescendsLanes:
+; Both lanes last 96 frames. The camera follows the (hidden) player, so it
+; pans down with Ho-Oh, then Ho-Oh keeps coming down the spire on its own.
+	dw .Player
+	dw .HoOh
+
+.Player:
+	step_sleep 16
+	slow_step DOWN
+	slow_step DOWN
+	slow_step DOWN
+	turn_head UP
+	show_object
+	step_sleep 32
+	step_end
+
+.HoOh:
+	slow_step DOWN
+	slow_step DOWN
+	slow_step DOWN
+	slow_step DOWN
+	slow_step DOWN
+	slow_step DOWN
+	step_end
+
+TinTowerRoofCameraRisesMovement:
+	hide_object
+	big_step UP
+	big_step UP
+	big_step UP
+	step_end
 
 TinTowerRoofPlayerWalksToDancersMovement:
 ; up the ladder to the gap in the railing

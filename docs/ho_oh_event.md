@@ -25,8 +25,10 @@ With the Rainbow Wing, and before Ho-Oh has been fought:
 2. The middle girl gives a welcome speech. A white flash, then the girls
    dance (about 12 seconds) to the Kimono Girl music, and a bell rings.
 3. The screen fades to white and the sky cutscene plays (about 18 seconds).
-4. Ho-Oh is standing below the spire when the roof fades back in. It cries,
-   the girls speak, the middle girl steps aside, and the player walks up.
+4. The roof fades back in with the camera raised to the top of the spire.
+   Ho-Oh comes down the spire as the camera pans back down to the player,
+   and lands below the spire base. A flash, Ho-Oh cries, the girls speak,
+   the middle girl steps aside, and the player walks up.
 5. "Shaoooh!", a flash, and the battle starts.
 
 On later visits the girls stand where the dance ended, and Ho-Oh is there
@@ -209,6 +211,33 @@ to regenerate the `TinTowerRoofDanceLanes` block, rather than hand-editing
 timings.
 
 
+## The camera pan and Ho-Oh's descent
+
+The game's camera always follows the player, so the pan after the cutscene
+moves the player:
+
+1. While the screen is white (before `special HoOhDescent`),
+   `TinTowerRoofCameraRisesMovement` hides the player and moves them 3 squares
+   up. `reanchormap` follows, because full-screen specials expect the BG map
+   anchored at its top-left. Ho-Oh is then placed at (9,0) with `moveobject`
+   and `appear`, above the view.
+2. After the cutscene, `TinTowerRoofHoOhDescendsAsm` starts two lanes of
+   `TinTowerRoofHoOhDescendsLanes` at once:
+   - The hidden player walks back down to the gap; the camera follows it.
+   - Ho-Oh `slow_step`s down to (9,6).
+   Then the player reappears facing up.
+3. `TinTowerRoofStartLanes` is the shared lane starter, also used by the
+   dance. It takes a -1-terminated list of objects (`PLAYER` included) and a
+   lanes table.
+
+Scripted steps are at least 1 pixel per frame, so the pan takes about 0.8 s,
+where the reference video takes about 1.5 s.
+
+The `HoOhDescent` special clears `hBGMapMode` on its way out. Otherwise the
+screen buffer keeps being copied to the BG map while the camera scrolls,
+which corrupts the rows that scroll in.
+
+
 ## The rooftop map and tiles
 
 - The roof is 10 × 9 blocks. The platform's floor is x 7–11, y 4–7 (in 16 ×
@@ -339,3 +368,6 @@ Built ROMs (`*.gbc`) and generated graphics are git-ignored.
   engine's map-object index (`object_const_def` starts at 2). Assembly that
   looks up objects directly must subtract 1.
 - **Block IDs:** stay at or below `$7f` (block loading wraps past 128).
+- **Camera moves around full-screen specials:** if a script moves the camera
+  right before a full-screen special, call `reanchormap` first. If it scrolls
+  the map right after one, make sure `hBGMapMode` is 0.

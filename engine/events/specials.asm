@@ -411,6 +411,10 @@ HoOhDescent:
 ; Let ExitAllMenus redraw the map's sprites before it fades back in
 	call EnableSpriteUpdates
 	call ExitAllMenus
+; The map may scroll right after this (no textbox in between), so stop
+; copying the screen buffer to the BG map, or it would overwrite new rows.
+	xor a
+	ldh [hBGMapMode], a
 	ret
 
 Diploma:
