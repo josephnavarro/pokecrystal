@@ -86,16 +86,9 @@ TinTowerRoofHoOhEventScript:
 	playsound SFX_SHINE
 	special FadeOutToWhite
 	special FadeInFromWhite
-	playmusic MUSIC_KIMONO_ENCOUNTER
-	callasm TinTowerRoofKimonoGirlsDanceAsm
-	playsound SFX_HEAL_BELL
-	waitsfx
-	pause 30
-	special FadeOutMusic
-	special FadeOutToWhite
-; While the screen is white, hide the player and raise the camera to the
-; top of the spire, where Ho-Oh will appear. A stand-in keeps the player's
-; place in the gap while the camera pans back down.
+; The camera follows the player, so to pan it, a stand-in takes the player's
+; place in the gap and the hidden player moves instead. First, pan up a square
+; so the whole platform is on screen for the dance.
 	checkflag ENGINE_PLAYER_IS_FEMALE
 	iftrue .KrisStandIn
 	appear TINTOWERROOF_CHRIS_STAND_IN
@@ -104,6 +97,18 @@ TinTowerRoofHoOhEventScript:
 .KrisStandIn:
 	appear TINTOWERROOF_KRIS_STAND_IN
 .StandInReady:
+	applymovement PLAYER, TinTowerRoofCameraPansUpForDanceMovement
+	playmusic MUSIC_KIMONO_ENCOUNTER
+	callasm TinTowerRoofKimonoGirlsDanceAsm
+	playsound SFX_HEAL_BELL
+	waitsfx
+	pause 30
+; look up toward the sky before it turns white
+	applymovement PLAYER, TinTowerRoofCameraPansUpAfterDanceMovement
+	special FadeOutMusic
+	special FadeOutToWhite
+; While the screen is white, raise the camera to the top of the spire,
+; where Ho-Oh will appear.
 	applymovement PLAYER, TinTowerRoofCameraRisesMovement
 ; full-screen specials expect the BG map anchored at its top-left
 	reanchormap
@@ -235,10 +240,17 @@ TinTowerRoofHoOhDescendsLanes:
 	slow_step DOWN
 	step_end
 
-TinTowerRoofCameraRisesMovement:
+TinTowerRoofCameraPansUpForDanceMovement:
 	hide_object
-	big_step UP
-	big_step UP
+	slow_step UP
+	step_end
+
+TinTowerRoofCameraPansUpAfterDanceMovement:
+	slow_step UP
+	step_end
+
+TinTowerRoofCameraRisesMovement:
+; the player is at (9, 6); the descent starts from (9, 5)
 	big_step UP
 	step_end
 

@@ -216,19 +216,25 @@ timings.
 The game's camera always follows the player, so the pan after the cutscene
 moves the player:
 
-1. While the screen is white (before `special HoOhDescent`),
-   `TinTowerRoofCameraRisesMovement` hides the player and moves them 3 squares
-   up. `reanchormap` follows, because full-screen specials expect the BG map
+1. After the flash before the dance, a stand-in takes the player's place in
+   the gap. `TinTowerRoofCameraPansUpForDanceMovement` hides the player and
+   moves them a square up, so the platform's top edge is on screen for the
+   dance.
+   After the dance, `TinTowerRoofCameraPansUpAfterDanceMovement` pans up one
+   more square before the white. While the screen is white,
+   `TinTowerRoofCameraRisesMovement` takes the (hidden) player the last
+   square up, 3 above the gap in all. `reanchormap` follows, because full-screen specials expect the BG map
    anchored at its top-left. Ho-Oh is then placed at (9,0) with `moveobject`
    and `appear`, above the view.
 2. After the cutscene, `TinTowerRoofHoOhDescendsAsm` starts two lanes of
    `TinTowerRoofHoOhDescendsLanes` at once:
    - The hidden player walks back down to the gap; the camera follows it.
    - Ho-Oh `slow_step`s down to (9,6).
-   Then the player reappears facing up. Meanwhile a stand-in object
+   Then the player reappears facing up. The stand-in
    (`TINTOWERROOF_CHRIS_STAND_IN` or `TINTOWERROOF_KRIS_STAND_IN`, by the
-   player's gender) stands in the gap, so the player never looks missing; it
-   is removed once the real player is back on that square.
+   player's gender) has stood in the gap since the dance began, so the player
+   never looks missing; it is removed once the real player is back on that
+   square.
 3. `TinTowerRoofStartLanes` is the shared lane starter, also used by the
    dance. It takes a -1-terminated list of objects (`PLAYER` included) and a
    lanes table.
