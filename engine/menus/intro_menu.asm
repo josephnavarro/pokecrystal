@@ -63,6 +63,16 @@ NewGame:
 	ld [wDebugFlags], a
 	call ResetWRAM
 	call NewGame_ClearTilemapEtc
+if DEF(_HO_OH_DEBUG)
+	call HoOhEventDebugSetup
+
+	ld a, LANDMARK_TIN_TOWER
+	ld [wPrevLandmark], a
+
+; keep the map and coordinates set by HoOhEventDebugSetup
+	ld a, SPAWN_N_A
+	ld [wDefaultSpawnpoint], a
+else
 	call PlayerProfileSetup
 	call OakSpeech
 	call InitializeWorld
@@ -72,6 +82,7 @@ NewGame:
 
 	ld a, SPAWN_HOME
 	ld [wDefaultSpawnpoint], a
+endc
 
 	ld a, MAPSETUP_WARP
 	ldh [hMapEntryMethod], a
@@ -86,6 +97,72 @@ PlayerProfileSetup:
 	ld c, 0
 	farcall InitMobileProfile
 	ret
+
+if DEF(_HO_OH_DEBUG)
+HoOhEventDebugSetup:
+; Skip the intro and start on Tin Tower 9F (where the Ho-Oh event video
+; starts) with just what the Tin Tower roof event needs.
+
+; "Girl", the second option of the gender menu
+	ld a, 1 << PLAYERGENDER_FEMALE_F
+	ld [wPlayerGender], a
+
+; The first preset name for a girl
+	ld hl, .Name
+	ld de, wPlayerName
+	ld bc, NAME_LENGTH
+	call CopyBytes
+
+; The video starts after the HP Up on this floor was picked up
+	ld de, EVENT_TIN_TOWER_9F_HP_UP
+	ld b, SET_FLAG
+	call EventFlagAction
+
+; The first option of each clock prompt: 10:00 AM, SUNDAY, and DST
+	xor a
+	ld [wStringBuffer2], a ; day (SUNDAY)
+	ld a, 10
+	ld [wStringBuffer2 + 1], a ; hours
+	xor a
+	ld [wStringBuffer2 + 2], a ; minutes
+	ld [wStringBuffer2 + 3], a ; seconds
+	call InitTime
+	ld hl, wDST
+	set DST_F, [hl]
+
+; Tin Tower 9F, where the video begins
+	ld a, GROUP_TIN_TOWER_9F
+	ld [wMapGroup], a
+	ld a, MAP_TIN_TOWER_9F
+	ld [wMapNumber], a
+	ld a, 5
+	ld [wXCoord], a
+	ld a, 3
+	ld [wYCoord], a
+	farcall SpawnPlayer
+	farcall _InitializeStartDay
+
+; The roof event requires the Rainbow Wing
+	ld a, RAINBOW_WING
+	ld [wCurItem], a
+	ld a, 1
+	ld [wItemQuantityChange], a
+	ld hl, wNumItems
+	call ReceiveItem
+
+; One Pokémon to battle Ho-Oh with (the video's lead)
+	ld a, AMPHAROS
+	ld [wCurPartySpecies], a
+	ld a, 43
+	ld [wCurPartyLevel], a
+	xor a ; PARTYMON
+	ld [wMonType], a
+	predef TryAddMonToParty
+	ret
+
+.Name:
+	dname "KRIS", NAME_LENGTH
+endc
 
 if DEF(_DEBUG)
 DebugRoom: ; unreferenced

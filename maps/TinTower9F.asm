@@ -5,6 +5,19 @@ TinTower9F_MapScripts:
 	def_scene_scripts
 
 	def_callbacks
+if DEF(_HO_OH_DEBUG)
+	callback MAPCALLBACK_NEWMAP, TinTower9FDebugInitializeEventsCallback
+endc
+
+if DEF(_HO_OH_DEBUG)
+TinTower9FDebugInitializeEventsCallback:
+; The debug start skips the player's house, which normally does this
+	checkevent EVENT_INITIALIZED_EVENTS
+	iftrue .SkipInitialization
+	jumpstd InitializeEventsScript
+.SkipInitialization:
+	endcallback
+endc
 
 TinTower9FHPUp:
 	itemball HP_UP
