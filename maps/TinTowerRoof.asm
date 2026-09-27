@@ -216,19 +216,21 @@ TinTowerRoofStartLanes:
 	ret
 
 TinTowerRoofHoOhDescendsLanes:
-; Both lanes last 96 frames. The camera follows the (hidden) player, so it
-; pans down with Ho-Oh, then Ho-Oh keeps coming down the spire on its own.
+; Both lanes last 96 frames. The camera follows the (hidden) player: it holds
+; until Ho-Oh is a square below the top of the screen, pans down with it
+; (keeping that gap), and stops at the gap in the railing while Ho-Oh comes
+; down the last square on its own.
 	dw .Player
 	dw .HoOh
 
 .Player:
-	step_sleep 16
+	step_sleep 32
 	slow_step DOWN
 	slow_step DOWN
 	slow_step DOWN
 	turn_head UP
 	show_object
-	step_sleep 32
+	step_sleep 16
 	step_end
 
 .HoOh:
