@@ -47,6 +47,7 @@ until it has been fought.
 | `special HoOhDescent` wrapper | `engine/events/specials.asm` |
 | Group ("dance") movement engine | `engine/overworld/map_objects.asm` (`MovementFunction_Dance`, `GetDanceMovementIndex`) |
 | Roof tiles, blocks, collision, palettes | `gfx/tilesets/tower.png`, `data/tilesets/tower_metatiles.bin`, `tower_collision.asm`, `gfx/tilesets/tower_palette_map.asm` |
+| Roof tile template and slot key | [`tin_tower_roof_tiles.md`](tin_tower_roof_tiles.md) |
 | Kimono girl sprite on the roof | `data/maps/outdoor_sprites.asm` (`FastShipGroupSprites`) |
 | Scene variable, event flag | `ram/wram.asm` (`wTinTowerRoofSceneID`), `constants/event_flags.asm` (`EVENT_TIN_TOWER_ROOF_KIMONO_GIRLS`) |
 | ROM bank placement | `layout.link` ("Ho-Oh Descent" in bank `$61`, "Ho-Oh Descent Graphics" in `$7f`, "Egg Moves" moved to `$60`) |
